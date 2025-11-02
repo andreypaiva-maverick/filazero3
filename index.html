@@ -143,6 +143,23 @@ body{padding:0;margin:0;background:#f8f9fa;}
 </div>
 
 <script>
+  // Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyArNaUMMkT_GO1S71Iziixi6ztzJh6Zasc",
+  authDomain: "atendimentobolsafamilia-1b905.firebaseapp.com",
+  projectId: "atendimentobolsafamilia-1b905",
+  storageBucket: "atendimentobolsafamilia-1b905.firebasestorage.app",
+  messagingSenderId: "277504860798",
+  appId: "1:277504860798:web:ca0e06ba614435578b2e2f"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
 // === Estado ===
 const STORAGE_KEY='miniFilaZero_final';
 function readState(){const raw=localStorage.getItem(STORAGE_KEY);if(!raw)return{nextId:{G:1,P:1,S:1},queue:{G:[],P:[],S:[]},current:null,history:[],ratioCount:0,operator:{type:'',room:'',table:''}};try{return JSON.parse(raw);}catch(e){return{nextId:{G:1,P:1,S:1},queue:{G:[],P:[],S:[]},current:null,history:[],ratioCount:0,operator:{type:'',room:'',table:''}};}}
@@ -236,3 +253,4 @@ setInterval(renderPanel,5000);
 </script>
 </body>
 </html>
+
