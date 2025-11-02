@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Atendimento Bolsa Família - Cadastro Único</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
+<style>
+body{padding:0;margin:0;background:#f8f9fa;}
+.panel{background:#0d6efd;color:white;padding:1rem;border-radius:6px}
+.ticket-card{border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,.08);}
+.large{font-size:3rem;font-weight:700}
+.small{font-size:0.9rem}
+.nav-link{cursor:pointer}
+#panel-history{font-size:1.3rem;}
+#login-banner{background:#0d6efd;color:white;padding:0.5rem 1rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;position:sticky;top:0;z-index:1000;}
+#login-controls{display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
+#login-controls input{max-width:120px;}
+.operator-selected{background:white;color:#0d6efd !important;}
+#overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(255,255,255,0.7);z-index:999;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN BANNER -->
+<div id="login-banner">
+  <div id="login-controls">
+    <span>Tipo de operador:</span>
+    <button id="btn-recep" class="btn btn-outline-light btn-sm">Recepcionista</button>
+    <button id="btn-cad" class="btn btn-outline-light btn-sm">Cadastrador</button>
+    <button id="btn-admin" class="btn btn-outline-light btn-sm">Administrador</button>
+    <input type="text" id="room" class="form-control form-control-sm d-none" placeholder="Sala">
+    <input type="text" id="table" class="form-control form-control-sm d-none" placeholder="Mesa">
+    <input type="password" id="admin-pass" class="form-control form-control-sm d-none" placeholder="Senha">
+    <button id="btn-login" class="btn btn-light btn-sm">Entrar</button>
+  </div>
+  <span id="operator-type-display"></span>
+</div>
+
+<!-- OVERLAY -->
+<div id="overlay"></div>
+
+<div id="main-app" class="container mt-3">
+  <nav class="navbar bg-white mb-3 rounded p-2">
+    <div class="container-fluid">
+      <span class="navbar-brand mb-0 h1">Atendimento Bolsa Família - Cadastro Único</span>
+      <div>
+        <a class="nav-link d-inline" id="nav-client">Cliente</a>
+        <a class="nav-link d-inline" id="nav-panel">Painel</a>
+        <a class="nav-link d-inline" id="nav-dashboard">Dashboard</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- CLIENT VIEW -->
+  <div id="view-client">
+    <div class="row">
+      <div class="col-md-6">
+        <div class="card ticket-card p-3">
+          <h5>Retirar sua senha</h5>
+          <p class="small text-muted">Escolha o tipo de atendimento, informe o nome do cliente e clique em "Pegar senha".</p>
+          <input type="text" id="client-name-input" class="form-control mb-2" placeholder="Nome do cliente">
+          <select id="ticket-type" class="form-select mb-2">
+            <option value="G">Público Geral</option>
+            <option value="P">Prioridade</option>
+            <option value="S">SIBEC</option>
+          </select>
+          <button id="btn-get-ticket" class="btn btn-primary mb-2">Pegar senha</button>
+          <button id="btn-reset-tickets" class="btn btn-danger mb-2">Resetar senhas</button>
+          <div id="client-ticket" style="display:none">
+            <div class="panel mb-2">
+              <div>Seu número</div>
+              <div id="client-code" class="large"></div>
+              <div id="client-name-display" class="large"></div>
+            </div>
+            <div id="qrcode"></div>
+            <div class="mt-2">
+              <button id="btn-copy-link" class="btn btn-outline-secondary btn-sm">Copiar link</button>
+              <button id="btn-share-wa" class="btn btn-success btn-sm ms-2">WhatsApp</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card p-3">
+          <h6>Posição atual</h6>
+          <div id="client-position">---</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL VIEW -->
+  <div id="view-panel" style="display:none">
+    <div class="card p-3">
+      <h5 class="mb-3">Painel de Chamadas</h5>
+      <div class="panel text-center mb-3">
+        <div class="small">Atendimento</div>
+        <div id="panel-current" class="large">—</div>
+        <div id="panel-name" class="large"></div>
+        <div id="panel-room-table" class="mt-2 fs-5"></div>
+      </div>
+      <h6>Últimos chamados</h6>
+      <div id="panel-history" class="text-muted" style="font-size:1.3rem;">—</div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD VIEW -->
+  <div id="view-dashboard" style="display:none">
+    <div class="card p-3">
+      <h5>Dashboard de Atendimento</h5>
+      <div class="alert alert-info mb-3" id="operator-info"></div>
+      <div class="mt-2 mb-3">
+        <button id="btn-next" class="btn btn-success">Próximo (G/P)</button>
+        <button id="btn-sibec" class="btn btn-info ms-2">SIBEC</button>
+        <button id="btn-recall" class="btn btn-outline-warning ms-2">Rechamar</button>
+        <button id="btn-complete" class="btn btn-outline-secondary ms-2">Concluir</button>
+      </div>
+      <div class="row">
+        <div class="col-md-6">
+          <h6>Fila Geral</h6>
+          <ul id="queue-G" class="list-group mb-3"></ul>
+          <h6>Fila Prioridade</h6>
+          <ul id="queue-P" class="list-group mb-3"></ul>
+          <h6>Fila SIBEC</h6>
+          <ul id="queue-S" class="list-group"></ul>
+        </div>
+        <div class="col-md-6">
+          <h6>Chamando agora</h6>
+          <div class="card p-3 mb-3">
+            <div id="dashboard-current" class="large">—</div>
+            <div id="dashboard-room-table" class="fs-5"></div>
+          </div>
+          <h6>Histórico (últimos 10)</h6>
+          <ul id="dashboard-history" class="list-group" style="font-size:1.2rem;"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="mt-4 small text-muted">Demo local — usa localStorage. Para uso real é preciso backend.</footer>
+</div>
+
+<script>
+// === Estado ===
+const STORAGE_KEY='miniFilaZero_final';
+function readState(){const raw=localStorage.getItem(STORAGE_KEY);if(!raw)return{nextId:{G:1,P:1,S:1},queue:{G:[],P:[],S:[]},current:null,history:[],ratioCount:0,operator:{type:'',room:'',table:''}};try{return JSON.parse(raw);}catch(e){return{nextId:{G:1,P:1,S:1},queue:{G:[],P:[],S:[]},current:null,history:[],ratioCount:0,operator:{type:'',room:'',table:''}};}}
+function writeState(s){localStorage.setItem(STORAGE_KEY,JSON.stringify(s));}
+const el=id=>document.getElementById(id);
+let selectedType='';
+
+function clearHighlights(){['btn-recep','btn-cad','btn-admin'].forEach(id=>el(id).classList.remove('operator-selected'));}
+el('btn-recep').onclick=()=>{selectedType='Recepcionista';el('room').classList.add('d-none');el('table').classList.add('d-none');el('admin-pass').classList.add('d-none');clearHighlights();el('btn-recep').classList.add('operator-selected');};
+el('btn-cad').onclick=()=>{selectedType='Cadastrador';el('room').classList.remove('d-none');el('table').classList.remove('d-none');el('admin-pass').classList.add('d-none');clearHighlights();el('btn-cad').classList.add('operator-selected');};
+el('btn-admin').onclick=()=>{selectedType='Administrador';el('room').classList.add('d-none');el('table').classList.add('d-none');el('admin-pass').classList.remove('d-none');clearHighlights();el('btn-admin').classList.add('operator-selected');};
+
+el('btn-login').onclick=()=>{
+  const s=readState();
+  if(el('btn-login').textContent==='Entrar'){
+    if(!selectedType){alert('Selecione um tipo de operador');return;}
+    if(selectedType==='Recepcionista'){s.operator={type:selectedType,room:'',table:''};writeState(s);postLogin();}
+    if(selectedType==='Cadastrador'){const r=el('room').value.trim();const t=el('table').value.trim();if(!r||!t){alert('Informe sala e mesa');return;}s.operator={type:selectedType,room:r,table:t};writeState(s);postLogin();}
+    if(selectedType==='Administrador'){const pw=el('admin-pass').value.trim();if(pw!=='486914'){alert('Senha incorreta');return;}s.operator={type:selectedType,room:'',table:''};writeState(s);postLogin();}
+  } else {
+    // logout
+    s.operator={type:'',room:'',table:''};writeState(s);location.reload();
+  }
+};
+
+function postLogin(){
+  const s=readState();
+  el('operator-type-display').textContent=s.operator.type+(s.operator.type==='Cadastrador'?` (Sala ${s.operator.room} — Mesa ${s.operator.table})`:``);
+  el('btn-login').textContent='SAIR';
+  el('overlay').style.display='none';
+  updateViewsAccess();
+}
+
+function updateViewsAccess(){
+  const s=readState();
+  el('view-client').style.display='none';
+  el('view-panel').style.display='none';
+  el('view-dashboard').style.display='none';
+  if(s.operator.type==='Recepcionista'){el('view-client').style.display='block';el('view-panel').style.display='block';}
+  if(s.operator.type==='Cadastrador'){el('view-dashboard').style.display='block';el('view-panel').style.display='block';}
+  if(s.operator.type==='Administrador'){el('view-client').style.display='block';el('view-panel').style.display='block';el('view-dashboard').style.display='block';}
+}
+
+// === Tickets ===
+function createTicket(type,name){const s=readState();const id=s.nextId[type]++;const code=`${type}-${String(id).padStart(3,'0')}`;const ticket={id,code,type,name:name||'',ts:Date.now(),status:'waiting'};s.queue[type].push(ticket);writeState(s);return ticket;}
+function getPosition(type,id){const s=readState();const idx=s.queue[type].findIndex(t=>t.id===id);return idx>=0?idx:-1;}
+function resetTickets(){const s={nextId:{G:1,P:1,S:1},queue:{G:[],P:[],S:[]},current:null,history:[],ratioCount:0,operator:readState().operator};writeState(s);renderDashboard();renderPanel();alert('Senhas resetadas');}
+el('btn-reset-tickets').onclick=resetTickets;
+
+let currentClient=null;
+el('btn-get-ticket').addEventListener('click',()=>{
+  const name=el('client-name-input').value.trim();
+  const type=el('ticket-type').value;
+  const t=createTicket(type,name);
+  currentClient=t;
+  el('client-ticket').style.display='block';
+  el('client-code').textContent=t.code;
+  el('client-name-display').textContent=t.name;
+  renderPosition(t.type,t.id);
+  renderDashboard();
+  renderPanel();
+  const link=`${location.origin}${location.pathname}?ticket=${t.type}-${t.id}`;
+  el('qrcode').innerHTML='';
+  new QRCode(el('qrcode'),{text:link,width:128,height:128});
+  el('btn-share-wa').onclick=()=>{const msg=encodeURIComponent(`Minha senha é ${t.code} (${t.name}) — acompanhe aqui: ${link}`);window.open(`https://wa.me/?text=${msg}`,'_blank');};
+  el('btn-copy-link').onclick=()=>{navigator.clipboard?.writeText(link).then(()=>alert('Link copiado!')).catch(()=>prompt('Copie o link:',link));};
+});
+
+// === Calls ===
+function nextCall(){const s=readState();let typeToCall='G';if(s.ratioCount>=2){typeToCall='P';s.ratioCount=0;}else{s.ratioCount++;}if(s.queue[typeToCall].length===0){if(typeToCall==='G'&&s.queue.P.length>0){typeToCall='P';}else if(typeToCall==='P'&&s.queue.G.length>0){typeToCall='G';}else{if(s.queue.S.length>0)typeToCall='S';else{return null;}}}const t=s.queue[typeToCall].shift();t.status='called';s.current={...t,room:s.operator.room,table:s.operator.table};s.history.unshift({...s.current,calledAt:Date.now()});if(s.history.length>50)s.history.pop();writeState(s);return s.current;}
+function callSibec(){const s=readState();if(s.queue.S.length===0)return null;const t=s.queue.S.shift();t.status='called';s.current={...t,room:s.operator.room,table:s.operator.table};s.history.unshift({...s.current,calledAt:Date.now()});if(s.history.length>50)s.history.pop();writeState(s);return s.current;}
+function recall(){const s=readState();if(!s.current)return null;s.current.recalled=(s.current.recalled||0)+1;writeState(s);return s.current;}
+function completeCurrent(){const s=readState();if(!s.current)return null;s.current.status='done';s.current=null;writeState(s);}
+
+const typeNames={G:'Geral',P:'Prioridade',S:'SIBEC'};
+function renderQueues(){const s=readState();['G','P','S'].forEach(tp=>{const q=el('queue-'+tp);q.innerHTML='';s.queue[tp].forEach(t=>{const li=document.createElement('li');li.className='list-group-item';li.textContent=t.code; q.appendChild(li);});});}
+function renderPanel(){const s=readState();if(s.current){el('panel-current').textContent=s.current.code;el('panel-name').textContent=s.current.name;el('panel-room-table').textContent=s.current.room?`Sala ${s.current.room} — Mesa ${s.current.table}`:'';}else{el('panel-current').textContent='—';el('panel-name').textContent='';el('panel-room-table').textContent='';}el('panel-history').textContent=s.history.slice(0,5).map(h=>`${h.code} (${h.name}${h.room?` — ${h.room}/${h.table}`:''})`).join(' • ');}
+function renderDashboard(){const s=readState();if(s.current){el('dashboard-current').textContent=s.current.code;el('dashboard-room-table').textContent=s.current.room?`Sala ${s.current.room} — Mesa ${s.current.table}`:'';}else{el('dashboard-current').textContent='—';el('dashboard-room-table').textContent='';}el('operator-info').textContent=`Operador: ${s.operator.type}${s.operator.type==='Cadastrador'?` (Sala ${s.operator.room} — Mesa ${s.operator.table})`:''}`;const h=el('dashboard-history');h.innerHTML='';s.history.slice(0,10).forEach(i=>{const li=document.createElement('li');li.className='list-group-item small';li.textContent=i.code+' — '+i.name+' — '+new Date(i.calledAt).toLocaleTimeString()+`${i.room?` (${i.room}/${i.table})`:''}`;h.appendChild(li);});renderQueues();}
+function renderPosition(type,id){if(!id){el('client-position').textContent='—';return;}const pos=getPosition(type,id);el('client-position').textContent=pos===-1?'Em atendimento ou já chamado':pos+' pessoa(s) à frente';}
+
+el('btn-next').addEventListener('click',()=>{const n=nextCall();if(!n)return alert('Filas vazias');renderDashboard();renderPanel();});
+el('btn-sibec').addEventListener('click',()=>{const n=callSibec();if(!n)return alert('Fila SIBEC vazia');renderDashboard();renderPanel();});
+el('btn-recall').addEventListener('click',()=>{const r=recall();if(!r)return alert('Nada para rechamar');alert('Rechamando '+r.code);renderPanel();});
+el('btn-complete').addEventListener('click',()=>{completeCurrent();renderDashboard();renderPanel();});
+
+['nav-client','nav-panel','nav-dashboard'].forEach(id=>el(id).addEventListener('click',()=>{showView(id.split('-')[1]);}));
+function showView(name){const s=readState();if(s.operator.type==='Recepcionista'){if(name==='dashboard')return alert('Acesso negado');} if(s.operator.type==='Cadastrador'){if(name==='client')return alert('Acesso negado');} el('view-client').style.display=name==='client'?'block':'none'; el('view-panel').style.display=name==='panel'?'block':'none'; el('view-dashboard').style.display=name==='dashboard'?'block':'none';}
+
+(function(){renderDashboard();renderPanel(); const p=new URLSearchParams(location.search); const tk=p.get('ticket'); if(tk){const [type,idStr]=tk.split('-'); const id=parseInt(idStr); currentClient={type,id};el('client-ticket').style.display='block';el('client-code').textContent=tk;renderPosition(type,id);showView('client');}})();
+setInterval(renderPanel,5000);
+</script>
+</body>
+</html>
